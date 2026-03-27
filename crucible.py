@@ -11,20 +11,23 @@ Usage:
   crucible.py status <name>   # Show current phase status
   crucible.py verdict <name>  # Show final verdict
   crucible.py list            # List all Crucible projects
+  crucible.py version         # Show version
 """
+__version__ = "0.2.1"
+
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-FORGE_ROOT = Path("/data/.agents/forge")
-CRUCIBLE_ROOT = Path("/data/.agents/crucible")
+FORGE_ROOT = Path(os.environ.get("FORGE_DIR", str(Path.home() / ".claude/tools/repoforge/forge")))
+CRUCIBLE_ROOT = Path(os.environ.get("CRUCIBLE_DIR", str(Path.home() / ".claude/tools/repoforge/crucible")))
 
 REQUIRED_FORGE_ARTIFACTS = [
     "intake.json",
     "scores.json",
-    "recommendation.md",
 ]
 
 PHASES = [
@@ -43,6 +46,27 @@ HUMAN_CHECKPOINTS = {
 }
 
 
+def _now():
+    """UTC timestamp string."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _load_json(path):
+    """Load a JSON file with error handling. Returns dict or exits."""
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f"Error: Failed to parse {path}: {e}")
+        sys.exit(1)
+
+
+def _save_json(path, data):
+    """Write JSON with UTF-8 encoding."""
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
 def cmd_check(args):
     """Verify Forge prerequisites for Crucible."""
     forge_dir = FORGE_ROOT / args.name
@@ -53,7 +77,7 @@ def cmd_check(args):
         print("BLOCKED: Forge evaluation required first")
         for issue in issues:
             print(f"  - {issue}")
-        print(f"\nRun: python3 /data/.agents/skills/forge/forge.py init {args.name} --repo <url> --purpose '<text>'")
+        print(f"\nRun: forge.py init {args.name} --repo <url> --purpose '<text>'")
         sys.exit(1)
 
     for artifact in REQUIRED_FORGE_ARTIFACTS:
@@ -61,9 +85,8 @@ def cmd_check(args):
             issues.append(f"Missing: {artifact}")
 
     # Check if graded
-    intake_path = forge_dir / "intake.json"
-    if intake_path.exists():
-        intake = json.loads(intake_path.read_text())
+    intake = _load_json(forge_dir / "intake.json")
+    if intake:
         if intake.get("score") is None:
             issues.append("Forge project not yet graded (no score)")
         if intake.get("decision") is None:
@@ -91,22 +114,19 @@ def cmd_start(args):
     """Initialize a Crucible project (requires Forge completion + human approval)."""
     forge_dir = FORGE_ROOT / args.name
 
-    # Run prerequisite check
     if not forge_dir.exists():
         print(f"No Forge project '{args.name}' found. Run Forge first.")
         sys.exit(1)
 
-    intake_path = forge_dir / "intake.json"
-    if not intake_path.exists():
+    forge_intake = _load_json(forge_dir / "intake.json")
+    if not forge_intake:
         print("No Forge intake.json found. Run Forge first.")
         sys.exit(1)
 
-    forge_intake = json.loads(intake_path.read_text())
     if forge_intake.get("score") is None:
         print("Forge project not graded. Complete Forge evaluation first.")
         sys.exit(1)
 
-    # Check for required artifacts
     for artifact in REQUIRED_FORGE_ARTIFACTS:
         if not (forge_dir / artifact).exists():
             print(f"Missing Forge artifact: {artifact}")
@@ -122,7 +142,7 @@ def cmd_start(args):
         "forge_score": forge_intake["score"],
         "forge_decision": forge_intake["decision"],
         "repo_url": forge_intake["repo_url"],
-        "started": datetime.now(timezone.utc).isoformat(),
+        "started": _now(),
         "current_phase": "sandbox_provisioning",
         "phases_completed": [],
         "checkpoints_cleared": [],
@@ -130,7 +150,7 @@ def cmd_start(args):
         "status": "awaiting_checkpoint",
     }
 
-    (crucible_dir / "state.json").write_text(json.dumps(state, indent=2))
+    _save_json(crucible_dir / "state.json", state)
 
     print(f"Crucible project '{args.name}' initialized")
     print(f"  Forge score: {forge_intake['score']}/5 ({forge_intake['decision']})")
@@ -143,13 +163,11 @@ def cmd_start(args):
 def cmd_status(args):
     """Show Crucible project status."""
     crucible_dir = CRUCIBLE_ROOT / args.name
-    state_path = crucible_dir / "state.json"
+    state = _load_json(crucible_dir / "state.json")
 
-    if not state_path.exists():
+    if not state:
         print(f"No Crucible project '{args.name}' found")
         sys.exit(1)
-
-    state = json.loads(state_path.read_text())
 
     print(f"Crucible: {state['name']}")
     print(f"  Repo: {state['repo_url']}")
@@ -162,30 +180,28 @@ def cmd_status(args):
     if state["verdict"]:
         print(f"  Verdict: {state['verdict']}")
 
-    # Show checkpoint status
     current = state["current_phase"]
     if current in HUMAN_CHECKPOINTS and current not in state["checkpoints_cleared"]:
         print(f"\n  AWAITING HUMAN CHECKPOINT:")
         print(f"  {HUMAN_CHECKPOINTS[current]}")
 
-    # List artifacts
-    print("\n  Artifacts:")
-    for f in sorted(crucible_dir.iterdir()):
-        if f.name != "state.json":
+    artifacts = [f for f in sorted(crucible_dir.iterdir()) if f.name != "state.json"]
+    if artifacts:
+        print(f"\n  Artifacts ({len(artifacts)}):")
+        for f in artifacts:
             size = f.stat().st_size
-            print(f"    {f.name} ({size} bytes)")
+            size_str = f"{size / 1024:.1f}KB" if size > 1024 else f"{size}B"
+            print(f"    {f.name:35s} {size_str}")
 
 
 def cmd_verdict(args):
     """Show the Crucible verdict."""
     crucible_dir = CRUCIBLE_ROOT / args.name
-    state_path = crucible_dir / "state.json"
+    state = _load_json(crucible_dir / "state.json")
 
-    if not state_path.exists():
+    if not state:
         print(f"No Crucible project '{args.name}' found")
         sys.exit(1)
-
-    state = json.loads(state_path.read_text())
 
     if not state["verdict"]:
         print(f"No verdict yet. Current phase: {state['current_phase']}")
@@ -209,19 +225,44 @@ def cmd_list(_args):
         print("No Crucible projects yet.")
         return
 
+    projects = []
+    for d in sorted(CRUCIBLE_ROOT.iterdir()):
+        if d.name.startswith("_"):
+            continue
+        if d.is_dir() and (d / "state.json").exists():
+            state = _load_json(d / "state.json")
+            if state:
+                projects.append(state)
+
+    if not projects:
+        print("No Crucible projects yet.")
+        return
+
     print(f"  {'NAME':25s} {'PHASE':25s} {'STATUS':20s} VERDICT")
     print("  " + "-" * 75)
+    for s in projects:
+        verdict = s["verdict"] or "-"
+        print(f"  {s['name']:25s} {s['current_phase']:25s} {s['status']:20s} {verdict}")
+    print(f"\n  {len(projects)} project(s)")
 
-    for d in sorted(CRUCIBLE_ROOT.iterdir()):
-        if d.is_dir() and (d / "state.json").exists():
-            state = json.loads((d / "state.json").read_text())
-            verdict = state["verdict"] or "-"
-            print(f"  {state['name']:25s} {state['current_phase']:25s} {state['status']:20s} {verdict}")
+
+def cmd_version(_args):
+    """Show version."""
+    print(f"Crucible v{__version__}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Crucible - Implementation & Smoke Test Pipeline")
-    sub = parser.add_subparsers(dest="command")
+    parser = argparse.ArgumentParser(
+        description="Crucible - Implementation & Smoke Test Pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  crucible.py check my-tool     # Verify Forge prerequisites
+  crucible.py start my-tool     # Initialize Crucible project
+  crucible.py status my-tool    # Show phase status
+  crucible.py verdict my-tool   # Show final verdict
+  crucible.py list              # List all projects""",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
 
     p_check = sub.add_parser("check", help="Verify Forge prerequisites")
     p_check.add_argument("name")
@@ -236,6 +277,7 @@ def main():
     p_verdict.add_argument("name")
 
     sub.add_parser("list", help="List all Crucible projects")
+    sub.add_parser("version", help="Show version")
 
     args = parser.parse_args()
     commands = {
@@ -243,7 +285,8 @@ def main():
         "start": cmd_start,
         "status": cmd_status,
         "verdict": cmd_verdict,
-        "list": lambda a: cmd_list(a),
+        "list": cmd_list,
+        "version": cmd_version,
     }
 
     if args.command in commands:
