@@ -36,27 +36,41 @@ def _load_intake(project_dir):
     intake_path = project_dir / "intake.json"
     if not intake_path.exists():
         return None
-    return json.loads(intake_path.read_text())
+    try:
+        return json.loads(intake_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f"Error: Failed to parse {intake_path}: {e}")
+        sys.exit(1)
 
 
 def _save_intake(project_dir, intake):
     """Write intake.json to a project directory."""
-    (project_dir / "intake.json").write_text(json.dumps(intake, indent=2))
+    (project_dir / "intake.json").write_text(json.dumps(intake, indent=2), encoding="utf-8")
 
 
 def _load_rubric():
     """Load rubric.json from the skill root."""
-    return json.loads((SKILL_ROOT / "rubric.json").read_text())
+    rubric_path = SKILL_ROOT / "rubric.json"
+    if not rubric_path.exists():
+        print(f"Error: rubric.json not found at {rubric_path}")
+        sys.exit(1)
+    return json.loads(rubric_path.read_text(encoding="utf-8"))
 
 
-def _load_scores(project_dir):
-    """Load and validate scores.json. Returns (scores_dict, errors_list)."""
+def _load_scores(project_dir, rubric=None):
+    """Load and validate scores.json. Returns (scores_dict, errors_list).
+    Pass rubric to avoid redundant file reads."""
     scores_path = project_dir / "scores.json"
     if not scores_path.exists():
         return None, ["scores.json not found"]
 
-    scores = json.loads(scores_path.read_text())
-    rubric = _load_rubric()
+    try:
+        scores = json.loads(scores_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        return None, [f"Failed to parse scores.json: {e}"]
+
+    if rubric is None:
+        rubric = _load_rubric()
     errors = []
     valid_ids = {c["id"] for c in rubric["categories"]}
 
@@ -161,9 +175,9 @@ def cmd_status(args):
     print(f"Phases:   {', '.join(intake['phases_completed']) or 'none'}")
     if intake.get("tags"):
         print(f"Tags:     {', '.join(intake['tags'])}")
-    if intake["score"]:
+    if intake["score"] is not None:
         print(f"Score:    {intake['score']}/5.0")
-    if intake["decision"]:
+    if intake["decision"] is not None:
         print(f"Decision: {intake['decision'].upper()}")
 
     artifacts = [f for f in sorted(project_dir.iterdir()) if f.name != "intake.json"]
@@ -183,7 +197,7 @@ def cmd_grade(args):
     project_dir = _resolve_project(args.name)
     rubric = _load_rubric()
 
-    scores, errors = _load_scores(project_dir)
+    scores, errors = _load_scores(project_dir, rubric=rubric)
     if scores is None:
         print("No scores.json found. Create it with category scores (1-5):")
         print(f'  Format: {{"security": 4, "functionality": 3, "integration": 3, "maintenance": 4, "performance": 3, "docs": 4, "license": 5}}')
@@ -239,7 +253,7 @@ def cmd_compare(args):
     for name in names:
         project_dir = _resolve_project(name)
         intake = _load_intake(project_dir)
-        scores, errors = _load_scores(project_dir)
+        scores, errors = _load_scores(project_dir, rubric=rubric)
 
         if scores is None:
             print(f"Error: '{name}' has no scores.json. Grade it first with 'forge.py grade {name}'.")
@@ -334,7 +348,7 @@ def cmd_compare(args):
     if args.output:
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(result if not args.json else result)
+        output_path.write_text(result, encoding="utf-8")
         print(f"Comparison written to {output_path}")
     else:
         print(result)
@@ -353,7 +367,7 @@ def cmd_compare(args):
         ],
         "winner": projects[0]["name"],
     }
-    comp_file.write_text(json.dumps(comp_data, indent=2))
+    comp_file.write_text(json.dumps(comp_data, indent=2), encoding="utf-8")
 
 
 def cmd_report(args):
@@ -379,12 +393,12 @@ def cmd_report(args):
         sys.exit(1)
 
     if report_type == "grade-card":
-        scores, errors = _load_scores(project_dir)
+        rubric = _load_rubric()
+        scores, errors = _load_scores(project_dir, rubric=rubric)
         if scores is None:
             print("No scores.json found. Grade the project first.")
             sys.exit(1)
 
-        rubric = _load_rubric()
         total, decision, breakdown = _calculate_grade(scores, rubric)
 
         # Build score table rows
@@ -413,12 +427,12 @@ def cmd_report(args):
 (Fill in based on evaluation context)
 """
         output_path = project_dir / "grade-card.md"
-        output_path.write_text(report)
+        output_path.write_text(report, encoding="utf-8")
         print(f"Grade card written to {output_path}")
 
     else:
         # For other report types, copy template with basic substitutions
-        template = template_path.read_text()
+        template = template_path.read_text(encoding="utf-8")
         template = template.replace("{{project_name}}", args.name)
         template = template.replace("{{tool_name}}", args.name)
         template = template.replace("{{repo_url}}", intake["repo_url"])
@@ -426,7 +440,7 @@ def cmd_report(args):
 
         output_name = template_map[report_type].replace("-template", "")
         output_path = project_dir / output_name
-        output_path.write_text(template)
+        output_path.write_text(template, encoding="utf-8")
         print(f"Report template written to {output_path}")
         print("Fill in the {{placeholders}} with evaluation findings.")
 
@@ -464,9 +478,12 @@ def cmd_list(args):
 
     projects = []
     for d in sorted(FORGE_ROOT.iterdir()):
+        if d.name.startswith("_"):
+            continue
         if d.is_dir() and (d / "intake.json").exists():
-            intake = json.loads((d / "intake.json").read_text())
-            projects.append(intake)
+            intake = _load_intake(d)
+            if intake:
+                projects.append(intake)
 
     if args.json:
         print(json.dumps({"projects": projects, "count": len(projects)}, indent=2))
@@ -479,8 +496,8 @@ def cmd_list(args):
     print(f"  {'NAME':25s} {'STATUS':12s} {'SCORE':>8s}  DECISION")
     print("  " + "-" * 60)
     for p in projects:
-        score = f"{p['score']:.2f}/5" if p.get("score") else "-"
-        decision = p["decision"].upper() if p.get("decision") else "-"
+        score = f"{p['score']:.2f}/5" if p.get("score") is not None else "-"
+        decision = p["decision"].upper() if p.get("decision") is not None else "-"
         print(f"  {p['name']:25s} {p['status']:12s} {score:>8s}  {decision}")
     print(f"\n  {len(projects)} project(s)")
 
@@ -494,7 +511,7 @@ def cmd_version(_args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="RepoForge — Tool Evaluation & Comparison Pipeline",
+        description="RepoForge - Tool Evaluation & Comparison Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   forge.py init my-tool --repo https://github.com/org/tool --purpose "API gateway"
@@ -505,7 +522,7 @@ def main():
   forge.py list --json
   forge.py delete old-tool --confirm""",
     )
-    sub = parser.add_subparsers(dest="command")
+    sub = parser.add_subparsers(dest="command", required=True)
 
     # init
     p_init = sub.add_parser("init", help="Initialize a new evaluation project")
