@@ -2,7 +2,7 @@
 
 **Repo:** {{repo_url}}
 **Audited:** {{date}}
-**Auditor:** OpenClaw (automated)
+**Auditor:** RepoForge (automated)
 
 ## Summary
 {{summary}}
