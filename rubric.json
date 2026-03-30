@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "categories": [
     {"id": "security", "name": "Security Posture", "weight": 0.25, "description": "No critical vulns, clean dependency audit, no hardcoded secrets, appropriate permission scope"},
     {"id": "functionality", "name": "Functionality", "weight": 0.25, "description": "Does what we need, handles edge cases, reliable output"},
@@ -19,5 +19,12 @@
     "partial_adopt": "Extract useful parts. Build our own wrapper using their approach.",
     "soft_reject": "Not worth integrating. Document learnings for future reference.",
     "hard_reject": "Fundamentally unsuitable. Archive findings and move on."
+  },
+  "provenance_modifiers": {
+    "_comment": "Applied to security score before weighting. Does not add new categories.",
+    "official": 0.25,
+    "verified": 0.0,
+    "community": -0.25,
+    "unknown": -0.5
   }
 }

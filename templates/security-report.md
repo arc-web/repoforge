@@ -4,6 +4,16 @@
 **Audited:** {{date}}
 **Auditor:** RepoForge (automated)
 
+## Provenance
+- **Tier:** {{provenance_tier}} ({{confidence}} confidence)
+- **Security Modifier:** {{security_modifier}}
+- **Scrutiny Level:** {{scrutiny_level}}
+- **Publisher:** {{author_login}} ({{author_type}})
+- **Account Age:** {{account_age_days}} days
+- **Author Risk:** {{author_risk}}
+- **Stars:** {{github_stars}} | **Contributors:** {{contributors}}
+- **GitHub Org Verified:** {{github_org_verified}}
+
 ## Summary
 {{summary}}
 
