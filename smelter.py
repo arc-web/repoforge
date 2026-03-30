@@ -12,18 +12,22 @@ Usage:
   smelter.py report <name>            # Show final recommendation
   smelter.py compare <name1> <name2>  # Compare two evaluated tools
   smelter.py list                     # List all Smelter projects
+  smelter.py version                  # Show version
 """
+__version__ = "0.2.1"
+
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-FORGE_ROOT = Path("/data/.agents/forge")
-CRUCIBLE_ROOT = Path("/data/.agents/crucible")
-SMELTER_ROOT = Path("/data/.agents/smelter")
+FORGE_ROOT = Path(os.environ.get("FORGE_DIR", str(Path.home() / ".claude/tools/repoforge/forge")))
+CRUCIBLE_ROOT = Path(os.environ.get("CRUCIBLE_DIR", str(Path.home() / ".claude/tools/repoforge/crucible")))
+SMELTER_ROOT = Path(os.environ.get("SMELTER_DIR", str(Path.home() / ".claude/tools/repoforge/smelter")))
 
-REQUIRED_FORGE_ARTIFACTS = ["intake.json", "scores.json", "recommendation.md"]
+REQUIRED_FORGE_ARTIFACTS = ["intake.json", "scores.json"]
 REQUIRED_CRUCIBLE_ARTIFACTS = ["state.json"]
 
 PHASES = [
@@ -45,6 +49,27 @@ RECOMMENDATIONS = [
 ]
 
 
+def _now():
+    """UTC timestamp string."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _load_json(path):
+    """Load a JSON file with error handling. Returns dict or None."""
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f"Error: Failed to parse {path}: {e}")
+        sys.exit(1)
+
+
+def _save_json(path, data):
+    """Write JSON with UTF-8 encoding."""
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
 def cmd_check(args):
     """Verify Forge + Crucible prerequisites."""
     forge_dir = FORGE_ROOT / args.name
@@ -59,9 +84,8 @@ def cmd_check(args):
             if not (forge_dir / artifact).exists():
                 issues.append(f"Missing Forge artifact: {artifact}")
 
-        intake_path = forge_dir / "intake.json"
-        if intake_path.exists():
-            intake = json.loads(intake_path.read_text())
+        intake = _load_json(forge_dir / "intake.json")
+        if intake:
             if intake.get("score") is None:
                 issues.append("Forge project not graded")
             else:
@@ -71,17 +95,15 @@ def cmd_check(args):
     if not crucible_dir.exists():
         issues.append(f"No Crucible project '{args.name}' found - run Crucible first")
     else:
-        state_path = crucible_dir / "state.json"
-        if not state_path.exists():
+        state = _load_json(crucible_dir / "state.json")
+        if not state:
             issues.append("No Crucible state.json found")
         else:
-            state = json.loads(state_path.read_text())
             if not state.get("verdict"):
                 issues.append(f"Crucible has no verdict yet (current phase: {state.get('current_phase', 'unknown')})")
             else:
                 print(f"Crucible verdict: {state['verdict']}")
 
-            # Check for smoke test results
             if not (crucible_dir / "smoke-test-results.md").exists():
                 issues.append("Missing Crucible artifact: smoke-test-results.md")
             if not (crucible_dir / "verdict.md").exists():
@@ -103,13 +125,16 @@ def cmd_start(args):
     forge_dir = FORGE_ROOT / args.name
     crucible_dir = CRUCIBLE_ROOT / args.name
 
-    # Quick prerequisite check
     if not forge_dir.exists() or not crucible_dir.exists():
         print("Prerequisites not met. Run: smelter.py check", args.name)
         sys.exit(1)
 
-    forge_intake = json.loads((forge_dir / "intake.json").read_text())
-    crucible_state = json.loads((crucible_dir / "state.json").read_text())
+    forge_intake = _load_json(forge_dir / "intake.json")
+    crucible_state = _load_json(crucible_dir / "state.json")
+
+    if not forge_intake or not crucible_state:
+        print("Missing intake.json or state.json. Run: smelter.py check", args.name)
+        sys.exit(1)
 
     smelter_dir = SMELTER_ROOT / args.name
     smelter_dir.mkdir(parents=True, exist_ok=True)
@@ -120,14 +145,14 @@ def cmd_start(args):
         "forge_score": forge_intake["score"],
         "forge_decision": forge_intake["decision"],
         "crucible_verdict": crucible_state.get("verdict"),
-        "started": datetime.now(timezone.utc).isoformat(),
+        "started": _now(),
         "current_phase": "data_collection",
         "phases_completed": [],
         "recommendation": None,
         "status": "in_progress",
     }
 
-    (smelter_dir / "state.json").write_text(json.dumps(state, indent=2))
+    _save_json(smelter_dir / "state.json", state)
 
     print(f"Smelter analysis initialized: {args.name}")
     print(f"  Forge: {forge_intake['score']}/5 ({forge_intake['decision']})")
@@ -138,13 +163,11 @@ def cmd_start(args):
 def cmd_status(args):
     """Show Smelter analysis progress."""
     smelter_dir = SMELTER_ROOT / args.name
-    state_path = smelter_dir / "state.json"
+    state = _load_json(smelter_dir / "state.json")
 
-    if not state_path.exists():
+    if not state:
         print(f"No Smelter project '{args.name}' found")
         sys.exit(1)
-
-    state = json.loads(state_path.read_text())
 
     print(f"Smelter: {state['name']}")
     print(f"  Repo: {state['repo_url']}")
@@ -157,23 +180,23 @@ def cmd_status(args):
     if state["recommendation"]:
         print(f"  Recommendation: {state['recommendation']}")
 
-    print("\n  Artifacts:")
-    for f in sorted(smelter_dir.iterdir()):
-        if f.name != "state.json":
+    artifacts = [f for f in sorted(smelter_dir.iterdir()) if f.name != "state.json"]
+    if artifacts:
+        print(f"\n  Artifacts ({len(artifacts)}):")
+        for f in artifacts:
             size = f.stat().st_size
-            print(f"    {f.name} ({size} bytes)")
+            size_str = f"{size / 1024:.1f}KB" if size > 1024 else f"{size}B"
+            print(f"    {f.name:35s} {size_str}")
 
 
 def cmd_report(args):
     """Show the final production readiness recommendation."""
     smelter_dir = SMELTER_ROOT / args.name
-    state_path = smelter_dir / "state.json"
+    state = _load_json(smelter_dir / "state.json")
 
-    if not state_path.exists():
+    if not state:
         print(f"No Smelter project '{args.name}' found")
         sys.exit(1)
-
-    state = json.loads(state_path.read_text())
 
     if not state["recommendation"]:
         print(f"No recommendation yet. Current phase: {state['current_phase']}")
@@ -193,13 +216,13 @@ def cmd_report(args):
 def cmd_compare(args):
     """Compare two tools that have been through the full pipeline."""
     for name in [args.name1, args.name2]:
-        smelter_dir = SMELTER_ROOT / name
-        if not (smelter_dir / "state.json").exists():
+        state = _load_json(SMELTER_ROOT / name / "state.json")
+        if not state:
             print(f"No Smelter project '{name}' found. Both tools must complete Forge > Crucible > Smelter.")
             sys.exit(1)
 
-    state1 = json.loads((SMELTER_ROOT / args.name1 / "state.json").read_text())
-    state2 = json.loads((SMELTER_ROOT / args.name2 / "state.json").read_text())
+    state1 = _load_json(SMELTER_ROOT / args.name1 / "state.json")
+    state2 = _load_json(SMELTER_ROOT / args.name2 / "state.json")
 
     print(f"Comparison: {args.name1} vs {args.name2}")
     print("=" * 60)
@@ -212,9 +235,6 @@ def cmd_compare(args):
     rec2 = state2['recommendation'] or 'pending'
     print(f"  {'Recommendation':20s} {rec1:18s} {rec2:18s}")
 
-    print(f"\n  For detailed comparison, run the full Smelter compare phase.")
-    print(f"  Output: /data/.agents/smelter/comparison-{args.name1}-vs-{args.name2}.md")
-
 
 def cmd_list(_args):
     """List all Smelter projects."""
@@ -222,19 +242,45 @@ def cmd_list(_args):
         print("No Smelter projects yet.")
         return
 
+    projects = []
+    for d in sorted(SMELTER_ROOT.iterdir()):
+        if d.name.startswith("_"):
+            continue
+        if d.is_dir() and (d / "state.json").exists():
+            state = _load_json(d / "state.json")
+            if state:
+                projects.append(state)
+
+    if not projects:
+        print("No Smelter projects yet.")
+        return
+
     print(f"  {'NAME':25s} {'PHASE':28s} {'STATUS':15s} RECOMMENDATION")
     print("  " + "-" * 80)
+    for s in projects:
+        rec = s["recommendation"] or "-"
+        print(f"  {s['name']:25s} {s['current_phase']:28s} {s['status']:15s} {rec}")
+    print(f"\n  {len(projects)} project(s)")
 
-    for d in sorted(SMELTER_ROOT.iterdir()):
-        if d.is_dir() and (d / "state.json").exists():
-            state = json.loads((d / "state.json").read_text())
-            rec = state["recommendation"] or "-"
-            print(f"  {state['name']:25s} {state['current_phase']:28s} {state['status']:15s} {rec}")
+
+def cmd_version(_args):
+    """Show version."""
+    print(f"Smelter v{__version__}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Smelter - Post-Sandbox Analysis & Reporting")
-    sub = parser.add_subparsers(dest="command")
+    parser = argparse.ArgumentParser(
+        description="Smelter - Post-Sandbox Analysis & Reporting",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  smelter.py check my-tool         # Verify prerequisites
+  smelter.py start my-tool         # Initialize analysis
+  smelter.py status my-tool        # Show progress
+  smelter.py report my-tool        # Show recommendation
+  smelter.py compare tool-a tool-b # Compare two evaluated tools
+  smelter.py list                  # List all projects""",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
 
     p_check = sub.add_parser("check", help="Verify prerequisites")
     p_check.add_argument("name")
@@ -253,6 +299,7 @@ def main():
     p_compare.add_argument("name2")
 
     sub.add_parser("list", help="List all Smelter projects")
+    sub.add_parser("version", help="Show version")
 
     args = parser.parse_args()
     commands = {
@@ -261,7 +308,8 @@ def main():
         "status": cmd_status,
         "report": cmd_report,
         "compare": cmd_compare,
-        "list": lambda a: cmd_list(a),
+        "list": cmd_list,
+        "version": cmd_version,
     }
 
     if args.command in commands:
