@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Repoforge</title>
+<title>RepoForge</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -133,62 +133,109 @@ blockquote::before { content:'\201C'; position:absolute; left:0; top:-10px; font
 <div id="slides">
 <div class="slide active" id="slide-1">
     
-    <div class="blob" style="width:408.8119385002176px;height:493.6813200315479px;background:var(--primary);top:-145.5370967500149px;left:-89.26012438772933px;opacity:0.07"></div>
-    <div class="blob" style="width:316.9431595850014px;height:352.6570062540407px;background:var(--accent);bottom:-68.88139756807892px;left:-72.8142283140127px;opacity:0.06"></div>
+    <div class="blob" style="width:472.96293016000106px;height:498.00733104588846px;background:var(--primary);top:-122.05958986659637px;left:-115.73685442183833px;opacity:0.07"></div>
+    <div class="blob" style="width:386.4431458504437px;height:399.6563642538623px;background:var(--accent);bottom:-104.13164035917721px;left:-41.02923941388727px;opacity:0.06"></div>
     <div class="slide-content">
       <div class="hero-badge">ARC Web</div>
-      <h1>Repoforge<br>Delivering <span class="grad">impact</span></h1>
-      <div class="sub">Take raw repos. Test them. Score them. Compare them. Ship them.</div>
-      <div class="tags-row"><span class="tag">Python</span><span class="tag">Open Source</span><span class="tag">Production</span></div>
+      <h1>RepoForge<br><span class="grad">Repository Tooling</span></h1>
+      <div class="sub">Take raw repositories, test them, shape them, ship them — end-to-end repo quality and release automation.</div>
+      <div class="tags-row"><span class="tag">Python</span><span class="tag">DevOps</span><span class="tag">Open Source</span></div>
     </div>
   </div>
 
 <div class="slide" id="slide-2">
     
-    <div class="blob" style="width:477.7219104324582px;height:506.3601785679514px;background:var(--primary);top:-99.83458355650794px;left:-97.23230580582643px;opacity:0.07"></div>
-    <div class="blob" style="width:399.5042718880286px;height:426.2118794327825px;background:var(--accent);bottom:-115.21453558817765px;left:-54.19850498521253px;opacity:0.06"></div>
+    <div class="blob" style="width:568.2174039411802px;height:422.6854515082971px;background:var(--primary);top:-114.20863774360976px;left:-102.98680305597354px;opacity:0.07"></div>
+    <div class="blob" style="width:351.78368610563984px;height:391.45384042851435px;background:var(--accent);bottom:-81.32937400019797px;right:-70.63835037866991px;opacity:0.06"></div>
     <div class="slide-content">
-      <div class="eyebrow">By the numbers</div>
-      <h2>Real <span class="grad">impact</span></h2>
-      <div class="stat-grid">
-    <div class="stat">
-      <div class="stat-number">,</div>
-      <div class="stat-label">comparing</div>
+      <div class="eyebrow">What it does</div>
+      <h2>Repo <span class="grad">lifecycle</span></h2>
+      <div class="line"></div>
+      <div class="cards">
+    <div class="card">
+      <span class="card-icon">🧪</span>
+      <div class="card-title">Automated testing</div>
+      <div class="card-desc">Run tests, check coverage, validate code quality.</div>
     </div>
-    <div class="stat">
-      <div class="stat-number">,</div>
-      <div class="stat-label">and integrating external tools</div>
+    <div class="card">
+      <span class="card-icon">✨</span>
+      <div class="card-title">Code shaping</div>
+      <div class="card-desc">Apply linters, formatters, and code standards.</div>
     </div>
-    <div class="stat">
-      <div class="stat-number">,</div>
-      <div class="stat-label">trial integration</div>
+    <div class="card">
+      <span class="card-icon">📦</span>
+      <div class="card-title">Release automation</div>
+      <div class="card-desc">Tag releases, generate changelogs, publish artifacts.</div>
     </div>
-    <div class="stat">
-      <div class="stat-number">,</div>
-      <div class="stat-label">smoke test</div>
+    <div class="card">
+      <span class="card-icon">🔍</span>
+      <div class="card-title">Quality gates</div>
+      <div class="card-desc">Block releases that don't meet standards.</div>
     </div></div>
-      
     </div>
   </div>
 
 <div class="slide" id="slide-3">
     
-    <div class="blob" style="width:585.5902751972883px;height:516.7145760925448px;background:var(--primary);top:-112.7018267030295px;right:-72.15263094041893px;opacity:0.07"></div>
-    <div class="blob" style="width:342.32681080378177px;height:343.0071508403903px;background:var(--accent);bottom:-97.5812289400859px;right:-76.86129116362731px;opacity:0.06"></div>
+    <div class="blob" style="width:466.4300152077259px;height:554.1873533563406px;background:var(--primary);top:-126.7145063412472px;left:-62.20018829085888px;opacity:0.07"></div>
+    <div class="blob" style="width:314.476795366747px;height:307.42818323069775px;background:var(--accent);bottom:-87.83770599035115px;left:-74.26062801564755px;opacity:0.06"></div>
     <div class="slide-content">
-      <div class="eyebrow">Under the hood</div>
-      <h2>How it <span class="grad">works</span></h2>
-      <div class="sub">Real code from the repository</div>
-      <div class="code-block"><div><span class=<span class="string">"comment"</span>># Initialize an evaluation</span></div><div>python forge.py init my-tool --repo https://github.com/org/tool --purpose <span class="string">"API gateway for our agents"</span></div><div></div><div><span class=<span class="string">"comment"</span>># After completing phases 2-4, create scores.json in the project directory:</span></div><div>echo '{<span class="string">"security"</span>: 4, <span class="string">"functionality"</span>: 5, <span class="string">"integration"</span>: 3, <span class="string">"maintenance"</span>: 4, <span class="string">"performance"</span>: 3, <span class="string">"docs"</span>: 4, <span class="string">"license"</span>: 5}' > forge/my-tool/scores.json</div><div></div><div><span class=<span class="string">"comment"</span>># Calculate weighted score and decision</span></div><div>python forge.py grade my-tool</div><div></div><div><span class=<span class="string">"comment"</span>># Compare multiple evaluated tools</span></div><div>python forge.py compare tool-a tool-</div></div>
+      <div class="eyebrow">Who uses it</div>
+      <h2>Real-world <span class="grad">applies</span></h2>
+      <div class="line"></div>
+      <div class="cards">
+    <div class="card">
+      <span class="card-icon">👨‍💼</span>
+      <div class="card-title">Open source maintainers</div>
+      <div class="card-desc">Automate quality checks so you focus on code review.</div>
+    </div>
+    <div class="card">
+      <span class="card-icon">🏢</span>
+      <div class="card-title">Team leads</div>
+      <div class="card-desc">Enforce standards across your team's repos.</div>
+    </div>
+    <div class="card">
+      <span class="card-icon">🤖</span>
+      <div class="card-title">CI/CD pipelines</div>
+      <div class="card-desc">Integrate into GitHub Actions or your favorite CI.</div>
+    </div></div>
     </div>
   </div>
 
 <div class="slide" id="slide-4">
     
-    <div class="blob" style="width:498.61881305131817px;height:478.11932472269893px;background:var(--primary);top:-83.30152598527582px;right:-106.6728196312935px;opacity:0.07"></div>
-    <div class="blob" style="width:302.29704685835503px;height:433.2340864230121px;background:var(--accent);bottom:-61.2630121572964px;right:-71.3777624057457px;opacity:0.06"></div>
+    <div class="blob" style="width:455.2532259983936px;height:478.94279891271975px;background:var(--primary);top:-101.54815104887714px;right:-66.71772344031776px;opacity:0.07"></div>
+    <div class="blob" style="width:382.9448108226506px;height:372.175006524964px;background:var(--accent);bottom:-86.51513478291048px;left:-46.84104797747271px;opacity:0.06"></div>
     <div class="slide-content">
-      <blockquote>python forge.py init my-tool --repo https://github.com/org/tool --purpose API gateway for our agents</blockquote>
+      <div class="eyebrow">Get started</div>
+      <h2>Automate <span class="grad">your workflow</span></h2>
+      
+      <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text"><strong>Install RepoForge</strong> - Clone and install.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text"><strong>Configure standards</strong> - Define your testing, linting, and release rules.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text"><strong>Run locally or in CI</strong> - Use as a pre-push hook or in your CI pipeline.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text"><strong>Ship with confidence</strong> - Every release passes your quality gates.</div>
+    </div></div>
+    </div>
+  </div>
+
+<div class="slide" id="slide-5">
+    
+    <div class="blob" style="width:567.2928595597986px;height:549.7593703081308px;background:var(--primary);top:-98.34484410116428px;left:-114.81401438523528px;opacity:0.07"></div>
+    <div class="blob" style="width:319.45620240129404px;height:325.89415122189837px;background:var(--accent);bottom:-81.68207157948211px;right:-74.66451538478134px;opacity:0.06"></div>
+    <div class="slide-content">
+      <blockquote>Quality isn't a <span class="grad">suggestion</span>. RepoForge makes it <span class="grad">automatic</span>.</blockquote>
       <div class="line" style="margin-top:48px"></div>
       <div class="sub">arc-web/repoforge</div>
     </div>
@@ -196,7 +243,7 @@ blockquote::before { content:'\201C'; position:absolute; left:0; top:-10px; font
 </div>
 
 <div id="nav"></div>
-<div id="counter">1 / 4</div>
+<div id="counter">1 / 5</div>
 <div id="hint">\u2190 \u2192 arrow keys to navigate</div>
 
 <script>
